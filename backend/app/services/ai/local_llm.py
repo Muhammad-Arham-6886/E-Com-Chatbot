@@ -25,89 +25,143 @@ class LocalLLMClient:
         self.model = model or settings.OLLAMA_MODEL
         self.custom_client = custom_client
 
-    @staticmethod
-    def _score_chunk_relevance(chunk: str, query: str) -> int:
-        """Score how relevant a chunk is to the user query. Higher = more relevant."""
+    # Words to ignore when scoring relevance
+    STOP_WORDS = {
+        "i", "me", "my", "we", "our", "you", "your", "it", "its",
+        "the", "a", "an", "is", "are", "was", "were", "be", "been",
+        "do", "does", "did", "have", "has", "had", "can", "could",
+        "will", "would", "should", "may", "might", "shall",
+        "this", "that", "these", "those", "what", "which", "who",
+        "how", "when", "where", "why", "if", "or", "and", "but",
+        "not", "no", "so", "very", "too", "also", "just",
+        "in", "on", "at", "to", "for", "of", "with", "by", "from",
+        "about", "like", "as", "than", "then", "now", "here", "there",
+    }
+
+    @classmethod
+    def _get_query_keywords(cls, query: str) -> List[str]:
+        """Extract meaningful keywords from a query, sorted by importance."""
+        words = query.lower().split()
+        # Keep words that are > 2 chars and not stop words
+        keywords = [w for w in words if len(w) > 2 and w not in cls.STOP_WORDS]
+        return keywords
+
+    @classmethod
+    def _score_chunk_relevance(cls, chunk: str, query: str) -> float:
+        """
+        Score how relevant a chunk is to the user query.
+        Returns 0.0 to 1.0. Higher = more relevant.
+        A chunk MUST contain at least one key query word to score > 0.
+        """
         chunk_lower = chunk.lower()
-        query_words = [w for w in query.lower().split() if len(w) > 2]
-        score = 0
-        for word in query_words:
-            if word in chunk_lower:
-                score += 10
-                # Bonus for exact word boundary match
-                if re.search(r'\b' + re.escape(word) + r'\b', chunk_lower):
-                    score += 5
-        return score
+        keywords = cls._get_query_keywords(query)
+
+        if not keywords:
+            return 0.0
+
+        matched = 0
+        for word in keywords:
+            # Check if the word appears as a whole word in the chunk
+            if re.search(r'\b' + re.escape(word) + r'\b', chunk_lower):
+                matched += 1
+
+        if matched == 0:
+            return 0.0
+
+        # Score = percentage of query keywords found in chunk
+        # Bonus if ALL keywords match
+        base_score = matched / len(keywords)
+        if matched == len(keywords):
+            base_score = 1.0  # Perfect match
+
+        return base_score
 
     @staticmethod
-    def _extract_product_answer(chunk: str, query: str) -> str:
-        """Extract a clean, concise answer from a chunk based on the query."""
+    def _is_do_you_have_query(query: str) -> bool:
+        """Check if the query is asking 'do you have X' or similar."""
+        patterns = [
+            r"do\s+you\s+have",
+            r"do\s+you\s+sell",
+            r"do\s+you\s+carry",
+            r"do\s+you\s+stock",
+            r"can\s+you\s+get",
+            r"are\s+you\s+selling",
+            r"is\s+there\s+a",
+            r"where\s+(?:can|i)\s+(?:find|get|buy)",
+        ]
+        q = query.lower().strip()
+        return any(re.search(p, q) for p in patterns)
+
+    @staticmethod
+    def _extract_answer(chunk: str, query: str) -> str:
+        """Extract a clean, concise answer from the best matching chunk."""
         # Remove common prefixes
         clean = chunk
         for prefix in [
             "Based on the official website information:",
             "Based on the official website information",
             "From the website:",
+            "Website says:",
         ]:
             clean = clean.replace(prefix, "").strip()
 
-        # Try to find product name (usually the first line or after a specific pattern)
-        lines = [l.strip() for l in clean.split('\n') if l.strip()]
-        
-        # Extract key sentences
-        sentences = [s.strip() for s in re.split(r'[.!?]+', clean) if s.strip() and len(s.strip()) > 10]
-        
-        # Find sentences relevant to the query
-        query_words = [w.lower() for w in query.split() if len(w) > 2]
-        relevant_sentences = []
+        # Split into sentences
+        sentences = [s.strip() for s in re.split(r'[.!?]+', clean) if s.strip() and len(s.strip()) > 5]
+
+        # Get query keywords
+        keywords = [w.lower() for w in query.split() if len(w) > 2 and w not in LocalLLMClient.STOP_WORDS]
+
+        # Find sentences that contain query keywords
+        relevant = []
         for s in sentences:
             s_lower = s.lower()
-            if any(w in s_lower for w in query_words):
-                relevant_sentences.append(s)
+            if any(w in s_lower for w in keywords):
+                relevant.append(s)
 
-        # If we found relevant sentences, use them
-        if relevant_sentences:
-            answer = '. '.join(relevant_sentences[:3])
-            if not answer.endswith('.'):
-                answer += '.'
-            return answer
+        # Use relevant sentences if found, otherwise use first 2 sentences
+        use_sentences = relevant[:3] if relevant else sentences[:2]
 
-        # Fallback: use first 2-3 meaningful sentences
-        if sentences:
-            answer = '. '.join(sentences[:3])
-            if not answer.endswith('.'):
-                answer += '.'
-            return answer
+        if not use_sentences:
+            return "I don't have that information."
 
-        # Last resort: first 300 chars
-        return clean[:300].strip() + ('...' if len(clean) > 300 else '')
+        answer = '. '.join(use_sentences)
+        if not answer.endswith('.'):
+            answer += '.'
 
-    @staticmethod
-    def _generate_deterministic_reply(system_prompt: str, user_prompt: str, context_chunks: Optional[List[str]] = None) -> str:
+        # Extract and append URL if present
+        urls = re.findall(r'https?://[^\s\)\n]+', chunk)
+        if urls:
+            answer += f"\n{urls[0]}"
+
+        return answer
+
+    @classmethod
+    def _generate_deterministic_reply(cls, system_prompt: str, user_prompt: str, context_chunks: Optional[List[str]] = None) -> str:
         """
         Deterministic, offline generation fallback for when Ollama is not running.
-        Finds the most relevant chunk and extracts a clean answer.
+        Finds the MOST relevant chunk and extracts a clean answer.
+        Returns 'I don't have that info' if no chunk is relevant enough.
         """
         if not context_chunks:
             return "I don't have that information. Would you like to connect with our support team?"
 
-        # Score and sort chunks by relevance to query
+        # Score all chunks
         scored = [
-            (LocalLLMClient._score_chunk_relevance(chunk, user_prompt), chunk)
+            (cls._score_chunk_relevance(chunk, user_prompt), chunk)
             for chunk in context_chunks
         ]
         scored.sort(key=lambda x: x[0], reverse=True)
 
-        # Use the most relevant chunk
-        best_chunk = scored[0][1]
+        best_score, best_chunk = scored[0]
 
-        # Extract clean answer
-        answer = LocalLLMClient._extract_product_answer(best_chunk, user_prompt)
+        # If best chunk has 0 relevance, we don't have the answer
+        if best_score < 0.3:
+            if cls._is_do_you_have_query(user_prompt):
+                return "We don't currently carry that product. Would you like me to connect you with our team?"
+            return "I don't have that information. Would you like to connect with our support team?"
 
-        # Extract URL from the chunk
-        urls = re.findall(r'https?://[^\s\)\n]+', best_chunk)
-        if urls:
-            answer += f"\n{urls[0]}"
+        # Extract clean answer from best chunk
+        answer = cls._extract_answer(best_chunk, user_prompt)
 
         return answer
 
@@ -124,7 +178,7 @@ class LocalLLMClient:
         """
         messages = [{"role": "system", "content": system_prompt}]
         if chat_history:
-            for msg in chat_history[-6:]:  # Keep recent context window
+            for msg in chat_history[-6:]:
                 messages.append({"role": msg["role"], "content": msg["content"]})
         messages.append({"role": "user", "content": user_prompt})
 
