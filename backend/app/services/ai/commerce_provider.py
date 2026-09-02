@@ -41,6 +41,10 @@ class ProductCard:
 
 
 class CommerceProvider:
+    @property
+    def is_mock(self) -> bool:
+        return False
+
     async def test_connection(self) -> dict:
         raise NotImplementedError
 
@@ -55,64 +59,28 @@ class CommerceProvider:
 
 
 class MockCommerceProvider(CommerceProvider):
+    """Used when no real WooCommerce store is connected. Returns empty results."""
+
+    @property
+    def is_mock(self) -> bool:
+        return True
+
     def __init__(self, base_url: str = "https://store.local"):
         self.base_url = base_url.rstrip("/")
-        self._mock_catalog = [
-            ProductCard(
-                id="prod_001",
-                name="Wireless Noise-Canceling Headphones",
-                price=149.99,
-                currency="USD",
-                description="Premium over-ear headphones with 30-hour battery life and fast charging.",
-                image_url="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=300",
-                product_url=f"{self.base_url}/products/wireless-headphones",
-                in_stock=True,
-            ),
-            ProductCard(
-                id="prod_002",
-                name="Ergonomic Mechanical Keyboard",
-                price=89.50,
-                currency="USD",
-                description="Custom mechanical switches with RGB backlighting and wrist rest.",
-                image_url="https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=300",
-                product_url=f"{self.base_url}/products/ergonomic-keyboard",
-                in_stock=True,
-            ),
-            ProductCard(
-                id="prod_003",
-                name="Ultra-Fast USB-C Charging Hub",
-                price=45.00,
-                currency="USD",
-                description="6-in-1 multi-port power delivery adapter for laptops and tablets.",
-                image_url="https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=300",
-                product_url=f"{self.base_url}/products/usb-c-hub",
-                in_stock=True,
-            ),
-        ]
 
     async def test_connection(self) -> dict:
         return {
-            "success": True,
-            "status_code": 200,
-            "message": "Mock commerce provider connected successfully.",
+            "success": False,
+            "status_code": 0,
+            "message": "No store connected. Connect your WooCommerce store in Integrations.",
             "currency": "USD",
-            "product_count": len(self._mock_catalog),
+            "product_count": 0,
         }
 
     async def search_products(self, query: str, limit: int = 4) -> List[ProductCard]:
-        q_lower = query.lower()
-        matches = [
-            p for p in self._mock_catalog
-            if q_lower in p.name.lower() or q_lower in p.description.lower()
-        ]
-        if not matches:
-            matches = self._mock_catalog
-        return matches[:limit]
+        return []
 
     async def get_product(self, product_id: str) -> Optional[ProductCard]:
-        for p in self._mock_catalog:
-            if p.id == product_id or product_id.lower() in p.name.lower():
-                return p
         return None
 
     async def get_add_to_cart_url(self, product_id: str, quantity: int = 1) -> str:
@@ -131,6 +99,15 @@ class WooCommerceProvider(CommerceProvider):
         self.consumer_key = consumer_key.strip()
         self.consumer_secret = consumer_secret.strip()
         self.custom_client = custom_client
+        self._is_mock = (
+            self.consumer_key.startswith("ck_test")
+            or "localhost" in self.api_url
+            or "store.local" in self.api_url
+        )
+
+    @property
+    def is_mock(self) -> bool:
+        return self._is_mock
 
     @staticmethod
     def _strip_html(text: str) -> str:
@@ -143,14 +120,13 @@ class WooCommerceProvider(CommerceProvider):
         return (self.consumer_key, self.consumer_secret)
 
     async def test_connection(self) -> dict:
-        # If test mock keys, return deterministic success
-        if self.consumer_key.startswith("ck_test") or "localhost" in self.api_url or "store.local" in self.api_url:
+        if self._is_mock:
             return {
-                "success": True,
-                "status_code": 200,
-                "message": "WooCommerce REST API v3 connected successfully.",
+                "success": False,
+                "status_code": 0,
+                "message": "Test/mock credentials. Connect real WooCommerce API keys.",
                 "currency": "USD",
-                "product_count": 12,
+                "product_count": 0,
             }
 
         client = self.custom_client or httpx.AsyncClient(timeout=10.0)
@@ -187,10 +163,8 @@ class WooCommerceProvider(CommerceProvider):
                 await client.aclose()
 
     async def search_products(self, query: str, limit: int = 4) -> List[ProductCard]:
-        # Offline or mock test credentials
-        if self.consumer_key.startswith("ck_test") or "localhost" in self.api_url or "store.local" in self.api_url:
-            mock = MockCommerceProvider(self.api_url)
-            return await mock.search_products(query, limit)
+        if self._is_mock:
+            return []
 
         client = self.custom_client or httpx.AsyncClient(timeout=10.0)
         should_close = self.custom_client is None
@@ -228,14 +202,11 @@ class WooCommerceProvider(CommerceProvider):
             if should_close:
                 await client.aclose()
 
-        # Fallback to mock catalog
-        mock = MockCommerceProvider(self.api_url)
-        return await mock.search_products(query, limit)
+        return []
 
     async def get_product(self, product_id: str) -> Optional[ProductCard]:
-        if self.consumer_key.startswith("ck_test") or "localhost" in self.api_url or "store.local" in self.api_url:
-            mock = MockCommerceProvider(self.api_url)
-            return await mock.get_product(product_id)
+        if self._is_mock:
+            return None
 
         client = self.custom_client or httpx.AsyncClient(timeout=10.0)
         should_close = self.custom_client is None
@@ -263,8 +234,7 @@ class WooCommerceProvider(CommerceProvider):
             if should_close:
                 await client.aclose()
 
-        mock = MockCommerceProvider(self.api_url)
-        return await mock.get_product(product_id)
+        return None
 
     async def get_add_to_cart_url(self, product_id: str, quantity: int = 1) -> str:
         return f"{self.api_url}/cart/?add-to-cart={product_id}&quantity={quantity}"
@@ -274,11 +244,6 @@ async def get_commerce_provider_for_website(
     db: AsyncSession,
     website_id: str,
 ) -> CommerceProvider:
-    """
-    Factory resolving the active CommerceProvider for a website.
-    If WooCommerce credentials are registered and active, returns WooCommerceProvider.
-    Otherwise returns default MockCommerceProvider.
-    """
     from app.models.integration import CommerceIntegration
 
     stmt = select(CommerceIntegration).where(

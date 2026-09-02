@@ -39,14 +39,32 @@ class ToolSelectionEngine:
         r"order\s+(?:this|item)",
     ]
 
-    PRODUCT_SEARCH_KEYWORDS = [
-        "product", "products", "item", "items", "catalog", "buy", "shop",
-        "price of", "how much is", "do you sell", "looking for", "recommend",
-        "discount", "inventory", "stock", "shoes", "keyboard", "headphones",
+    # "What is X" or "tell me about X" patterns -> knowledge inquiry
+    KNOWLEDGE_PATTERNS = [
+        r"^what\s+(?:is|are|does|do)",
+        r"^tell\s+me\s+about",
+        r"^how\s+(?:do|does|is|are|can|could)",
+        r"^why\s+(?:is|are|do|does|can|could)",
+        r"^when\s+(?:is|are|do|does|can|could)",
+        r"^where\s+(?:is|are|do|does|can|could)",
+        r"^can\s+(?:you|i|we)",
+        r"^do\s+you\s+(?:have|offer|provide|sell|carry)",
+        r"^what's\s+the\s+(?:difference|policy|process|procedure)",
+    ]
+
+    # Product purchase/search intent keywords
+    BUY_INTENT_KEYWORDS = [
+        "buy", "purchase", "shop", "add to cart", "order",
+        "price", "cost", "how much", "discount", "sale",
+        "in stock", "available", "stock",
+    ]
+
+    PRODUCT_KEYWORDS = [
+        "product", "products", "item", "items", "catalog",
+        "shoes", "keyboard", "headphones", "clothing",
         "grenade", "smoke", "bomb", "firework", "fireworks", "cannon",
-        "paintball", "airsoft", "photography",
+        "paintball", "airsoft",
         "bundle", "pack", "kit", "set",
-        "do you have", "sell", "available", "in stock",
     ]
 
     POLICY_AND_FAQ_KEYWORDS = [
@@ -77,7 +95,7 @@ class ToolSelectionEngine:
                     confidence=0.90,
                 )
 
-        # 3. Check Policy / FAQ Knowledge Inquiry priority (e.g. "How much is shipping?")
+        # 3. Check Policy / FAQ
         for kw in cls.POLICY_AND_FAQ_KEYWORDS:
             if kw in msg_lower:
                 return ToolCallResult(
@@ -86,16 +104,35 @@ class ToolSelectionEngine:
                     confidence=0.95,
                 )
 
-        # 4. Check Product Search / Commerce Inquiry
-        for kw in cls.PRODUCT_SEARCH_KEYWORDS:
-            if kw in msg_lower:
+        # 4. Check "What is X" / informational patterns -> knowledge inquiry first
+        for pat in cls.KNOWLEDGE_PATTERNS:
+            if re.search(pat, msg_lower):
                 return ToolCallResult(
-                    tool=ToolType.SEARCH_PRODUCT,
+                    tool=ToolType.KNOWLEDGE_INQUIRY,
                     parameters={"query": user_message},
-                    confidence=0.85,
+                    confidence=0.90,
                 )
 
-        # 5. Default: Knowledge Inquiry via RAG
+        # 5. Check Buy Intent + Product keywords -> product search
+        has_buy_intent = any(kw in msg_lower for kw in cls.BUY_INTENT_KEYWORDS)
+        has_product_keyword = any(kw in msg_lower for kw in cls.PRODUCT_KEYWORDS)
+
+        if has_buy_intent and has_product_keyword:
+            return ToolCallResult(
+                tool=ToolType.SEARCH_PRODUCT,
+                parameters={"query": user_message},
+                confidence=0.90,
+            )
+
+        # 6. Standalone product keywords (no "what is" prefix) -> product search
+        if has_product_keyword:
+            return ToolCallResult(
+                tool=ToolType.SEARCH_PRODUCT,
+                parameters={"query": user_message},
+                confidence=0.80,
+            )
+
+        # 7. Default: Knowledge Inquiry via RAG
         return ToolCallResult(
             tool=ToolType.KNOWLEDGE_INQUIRY,
             parameters={"query": user_message},

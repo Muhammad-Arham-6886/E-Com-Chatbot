@@ -132,40 +132,40 @@ class RAGEngine:
             from app.services.ai.commerce_provider import get_commerce_provider_for_website
             provider = self.commerce_provider or await get_commerce_provider_for_website(self.db, website.id)
             products = await provider.search_products(user_message, limit=3)
-            for prod in products:
-                actions.append(
-                    SuggestedAction(
-                        action_type="product_card",
-                        label=prod.name,
-                        value=prod.product_url,
-                        payload=prod.to_dict(),
-                    )
-                )
 
-            if products:
+            # If no products found (no store connected or no match), fall through to RAG
+            if not products:
+                # Continue to knowledge inquiry below
+                pass
+            else:
+                for prod in products:
+                    actions.append(
+                        SuggestedAction(
+                            action_type="product_card",
+                            label=prod.name,
+                            value=prod.product_url,
+                            payload=prod.to_dict(),
+                        )
+                    )
+
                 reply = ""
                 for p in products:
                     reply += f"{p.name} - ${p.price:.2f}\n"
                     if p.description:
-                        # Truncate description to 1-2 sentences
                         short_desc = '. '.join(p.description.split('.')[:2]).strip()
                         if not short_desc.endswith('.'):
                             short_desc += '.'
                         reply += f"{short_desc}\n"
                     reply += f"Link: {p.product_url}\n\n"
                 reply = reply.strip()
-            else:
-                reply = "I searched our product catalog but couldn't find exact matches for that item. Would you like me to connect you with a representative?"
-                if whatsapp_action:
-                    actions.append(whatsapp_action)
 
-            return RAGResponse(
-                content=reply,
-                sources=[],
-                suggested_actions=actions,
-                tool_call=tool_result,
-                token_count=len(reply.split()),
-            )
+                return RAGResponse(
+                    content=reply,
+                    sources=[],
+                    suggested_actions=actions,
+                    tool_call=tool_result,
+                    token_count=len(reply.split()),
+                )
 
         # 4. Handle Knowledge Inquiry (RAG)
         search_hits = await self.vector_search.search(
