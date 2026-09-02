@@ -120,7 +120,7 @@ class ChunkQualityFilter:
 
 
 class DocumentChunker:
-    def __init__(self, chunk_size: int = 800, chunk_overlap: int = 150, min_quality: float = 0.4):
+    def __init__(self, chunk_size: int = 800, chunk_overlap: int = 150, min_quality: float = 0.2):
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.min_quality = min_quality

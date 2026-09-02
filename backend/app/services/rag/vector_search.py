@@ -68,19 +68,12 @@ class VectorSearchService:
         """Check if a chunk is navigation/boilerplate content."""
         content = content.strip()
         # Very short chunks are likely labels
-        if len(content) < 30:
+        if len(content) < 20:
             return True
-        # Single words or short phrases
+        # Single word
         words = content.split()
-        if len(words) < 5:
+        if len(words) < 3:
             return True
-        # Looks like a list of category names (no sentences, just words separated by newlines)
-        lines = [l.strip() for l in content.split('\n') if l.strip()]
-        if lines:
-            # Count lines that are just single words (categories)
-            short_lines = sum(1 for l in lines if len(l.split()) <= 2)
-            if short_lines > len(lines) * 0.5:
-                return True
         return False
 
     @staticmethod
@@ -154,8 +147,9 @@ class VectorSearchService:
                     continue
 
                 kw_score = self._keyword_overlap_score(chunk.content, query)
-                # Combined score: 60% vector similarity + 40% keyword match
-                combined = (vec_score * 0.6) + (kw_score * 0.4)
+                # Combined score: 30% vector similarity + 70% keyword match
+                # (Keywords are more reliable than random deterministic embeddings)
+                combined = (vec_score * 0.3) + (kw_score * 0.7)
 
                 re_ranked.append((combined, SearchResultItem(
                     chunk_id=chunk.id,
@@ -202,7 +196,7 @@ class VectorSearchService:
                     continue
 
                 kw_score = self._keyword_overlap_score(chunk.content, query)
-                combined = (vec_score * 0.6) + (kw_score * 0.4)
+                combined = (vec_score * 0.3) + (kw_score * 0.7)
 
                 scored_items.append((combined, SearchResultItem(
                     chunk_id=chunk.id,

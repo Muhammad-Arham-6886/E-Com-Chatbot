@@ -61,8 +61,8 @@ class LocalLLMClient:
 
         matched = 0
         for word in keywords:
-            # Check if the word appears as a whole word in the chunk
-            if re.search(r'\b' + re.escape(word) + r'\b', chunk_lower):
+            # Simple substring match (handles plural/singular, conjugations)
+            if word in chunk_lower:
                 matched += 1
 
         if matched == 0:
@@ -161,7 +161,7 @@ class LocalLLMClient:
         best_score, best_chunk = scored[0]
 
         # If best chunk has 0 relevance, we don't have the answer
-        if best_score < 0.3:
+        if best_score < 0.15:
             if cls._is_do_you_have_query(user_prompt):
                 return "We don't currently carry that product. Would you like me to connect you with our team?"
             return "I don't have that information. Would you like to connect with our support team?"

@@ -174,8 +174,8 @@ class RAGEngine:
             query=user_message,
             org_id=website.organization_id,
             website_id=website.id,
-            top_k=8,
-            min_similarity=0.15,
+            top_k=10,
+            min_similarity=0.05,
         )
 
         # Filter out low-quality context chunks
@@ -183,13 +183,13 @@ class RAGEngine:
         seen_urls = set()
         for hit in search_hits:
             content = hit.content.strip()
-            # Skip very short or navigation-like chunks
-            if len(content) < 40:
+            # Skip very short chunks
+            if len(content) < 25:
                 continue
             # Skip chunks that are mostly lists of short items (category lists)
             lines = [l.strip() for l in content.split('\n') if l.strip()]
             short_lines = sum(1 for l in lines if len(l.split()) <= 2)
-            if lines and short_lines > len(lines) * 0.5:
+            if lines and short_lines > len(lines) * 0.7:
                 continue
 
             context_chunks.append(content)
