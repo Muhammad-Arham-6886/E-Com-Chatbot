@@ -172,8 +172,8 @@ class RAGEngine:
             query=user_message,
             org_id=website.organization_id,
             website_id=website.id,
-            top_k=4,
-            min_similarity=0.05,
+            top_k=6,
+            min_similarity=0.15,
         )
 
         context_chunks: List[str] = []
