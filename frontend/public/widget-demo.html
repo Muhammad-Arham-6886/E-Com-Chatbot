@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Apex Outfitters - Demo Store</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: #f8fafc; color: #1e293b; }
+    header { background-color: #ffffff; border-bottom: 1px solid #e2e8f0; padding: 18px 48px; display: flex; justify-content: space-between; align-items: center; }
+    .brand { font-size: 20px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px; }
+    .brand-badge { background: #4f46e5; color: white; padding: 2px 8px; border-radius: 6px; font-size: 12px; }
+    nav a { margin-left: 24px; text-decoration: none; color: #64748b; font-weight: 500; font-size: 14px; }
+    nav a:hover { color: #0f172a; }
+    .hero { max-width: 1200px; margin: 48px auto; padding: 0 24px; text-align: center; }
+    .hero h1 { font-size: 44px; font-weight: 800; color: #0f172a; line-height: 1.2; }
+    .hero p { font-size: 18px; color: #64748b; margin-top: 16px; max-width: 680px; margin-left: auto; margin-right: auto; }
+    .hero-btn { display: inline-block; margin-top: 28px; background: #4f46e5; color: white; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 15px; box-shadow: 0 4px 14px rgba(79, 70, 229, 0.3); }
+    .products-grid { max-width: 1200px; margin: 64px auto; padding: 0 24px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 32px; }
+    .card { background: white; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); transition: transform 0.2s; }
+    .card:hover { transform: translateY(-4px); }
+    .card img { width: 100%; height: 220px; object-fit: cover; background: #cbd5e1; }
+    .card-body { padding: 20px; }
+    .card-title { font-size: 16px; font-weight: 700; color: #0f172a; }
+    .card-price { font-size: 18px; font-weight: 800; color: #059669; margin-top: 6px; }
+    .card-desc { font-size: 13px; color: #64748b; margin-top: 8px; line-height: 1.4; }
+    .banner { background: #0f172a; color: white; padding: 48px 24px; text-align: center; margin-top: 80px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span>Apex Outfitters</span>
+      <span class="brand-badge">WooCommerce Store</span>
+    </div>
+    <nav>
+      <a href="#">Shop</a>
+      <a href="#">Categories</a>
+      <a href="#">Shipping & Returns</a>
+      <a href="#">Support</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <h1>Experience Next-Gen Gear for Modern Explorers</h1>
+    <p>Premium noise-canceling audio, ergonomic mechanical peripherals, and fast-charging hubs engineered for maximum performance.</p>
+    <a href="#shop" class="hero-btn">Browse Collection</a>
+  </section>
+
+  <section class="products-grid" id="shop">
+    <div class="card">
+      <img src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600" alt="Headphones" />
+      <div class="card-body">
+        <div class="card-title">Wireless Noise-Canceling Headphones</div>
+        <div class="card-price">$149.99 USD</div>
+        <div class="card-desc">30-hour battery life with active noise cancellation and USB-C fast charging.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <img src="https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=600" alt="Keyboard" />
+      <div class="card-body">
+        <div class="card-title">Ergonomic Mechanical Keyboard</div>
+        <div class="card-price">$89.50 USD</div>
+        <div class="card-desc">Custom tactile mechanical switches with per-key RGB backlighting and magnetic palm rest.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <img src="https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=600" alt="Charging Hub" />
+      <div class="card-body">
+        <div class="card-title">Ultra-Fast USB-C Multi-Port Hub</div>
+        <div class="card-price">$45.00 USD</div>
+        <div class="card-desc">6-in-1 power delivery dock supporting dual 4K monitors, high-speed SD cards, and 100W PD.</div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="banner">
+    <p>© 2026 Apex Outfitters Inc. All rights reserved. Free 2-day express shipping on orders over $75.</p>
+  </footer>
+
+  <!-- AI Customer & Commerce Assistant Embed Script -->
+  <!-- Note: Replace data-site-id with your website's actual public_site_id from the SaaS dashboard -->
+  <script 
+    src="/widget.js" 
+    data-site-id="pub_demo_apex" 
+    data-api-url="http://localhost:8000"
+    async 
+    defer>
+  </script>
+</body>
+</html>
