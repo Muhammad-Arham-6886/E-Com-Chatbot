@@ -51,13 +51,6 @@ async def test_list_websites_by_organization(client: AsyncClient, create_test_us
     user, token = await create_test_user("multisite@example.com")
     org = await create_test_org("MultiSite Corp", user)
 
-    # Upgrade to STARTER plan to allow multiple websites
-    await client.post(
-        f"/api/v1/billing/change-tier?org_id={org.id}",
-        headers={"Authorization": f"Bearer {token}"},
-        json={"tier": "STARTER"},
-    )
-
     # Add 2 websites
     await client.post(
         f"/api/v1/websites?org_id={org.id}",

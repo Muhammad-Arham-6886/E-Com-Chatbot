@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.chat import ChatSession, ChatMessage
 from app.models.website import Website
-from app.models.subscription import OrganizationUsage
 
 
 class AnalyticsService:

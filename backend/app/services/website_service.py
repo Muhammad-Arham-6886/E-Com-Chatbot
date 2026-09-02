@@ -28,9 +28,6 @@ class WebsiteService:
     async def create_website(
         db: AsyncSession, org_id: str, data: WebsiteCreate
     ) -> Website:
-        from app.services.quota_service import QuotaService
-        await QuotaService.check_website_creation_allowed(db, org_id)
-
         try:
             normalized_url, domain = PlatformDetector.normalize_url(data.url)
         except ValueError as e:

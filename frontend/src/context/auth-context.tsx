@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { apiRequest } from "@/lib/api-client";
 
 export interface User {
@@ -23,52 +23,44 @@ export interface Organization {
 
 interface AuthContextType {
   user: User | null;
-  organizations: Organization[];
   currentOrg: Organization | null;
   isLoading: boolean;
   login: (token: string, userData: User) => Promise<void>;
   logout: () => void;
-  setCurrentOrg: (org: Organization) => void;
-  refreshOrganizations: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [currentOrg, setCurrentOrg] = useState<Organization | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
-  const pathname = usePathname();
 
   const fetchUserProfile = async () => {
     try {
       const userData = await apiRequest<User>("/auth/me");
       setUser(userData);
-      await fetchOrgs();
+      await fetchOrg();
     } catch (err) {
       localStorage.removeItem("saas_token");
       setUser(null);
-      setOrganizations([]);
       setCurrentOrg(null);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const fetchOrgs = async () => {
+  const fetchOrg = async () => {
     try {
       const orgs = await apiRequest<Organization[]>("/organizations");
-      setOrganizations(orgs);
       if (orgs.length > 0) {
-        // preserve current or default to first
-        setCurrentOrg((prev) => (prev ? orgs.find((o) => o.id === prev.id) || orgs[0] : orgs[0]));
+        setCurrentOrg(orgs[0]);
       } else {
         setCurrentOrg(null);
       }
     } catch (err) {
-      console.error("Failed to load organizations", err);
+      console.error("Failed to load organization", err);
     }
   };
 
@@ -84,14 +76,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (token: string, userData: User) => {
     localStorage.setItem("saas_token", token);
     setUser(userData);
-    await fetchOrgs();
+    await fetchOrg();
     router.push("/dashboard");
   };
 
   const logout = () => {
     localStorage.removeItem("saas_token");
     setUser(null);
-    setOrganizations([]);
     setCurrentOrg(null);
     router.push("/login");
   };
@@ -100,13 +91,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
-        organizations,
         currentOrg,
         isLoading,
         login,
         logout,
-        setCurrentOrg,
-        refreshOrganizations: fetchOrgs,
       }}
     >
       {children}

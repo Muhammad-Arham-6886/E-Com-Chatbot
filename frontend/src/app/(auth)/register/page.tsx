@@ -4,13 +4,12 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/auth-context";
 import { apiRequest } from "@/lib/api-client";
-import { Bot, Lock, Mail, User as UserIcon, Building, ArrowRight, AlertCircle } from "lucide-react";
+import { Bot, Lock, Mail, User as UserIcon, ArrowRight, AlertCircle } from "lucide-react";
 
 export default function RegisterPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [orgName, setOrgName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { login } = useAuth();
@@ -43,13 +42,11 @@ export default function RegisterPage() {
       // Temporarily store token so next request works
       localStorage.setItem("saas_token", loginRes.access_token);
 
-      // 3. Create initial organization
-      if (orgName.trim()) {
-        await apiRequest("/organizations", {
-          method: "POST",
-          body: JSON.stringify({ name: orgName.trim() }),
-        });
-      }
+      // 3. Create default organization
+      await apiRequest("/organizations", {
+        method: "POST",
+        body: JSON.stringify({ name: fullName.trim() || "My Workspace" }),
+      });
 
       // 4. Complete login context
       await login(loginRes.access_token, loginRes.user);
@@ -69,7 +66,7 @@ export default function RegisterPage() {
             <Bot className="h-7 w-7 text-white" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-white">Start with AI Assistant</h1>
-          <p className="mt-1 text-sm text-slate-400">Set up your account & organization in seconds</p>
+          <p className="mt-1 text-sm text-slate-400">Set up your account in seconds</p>
         </div>
 
         {/* Card */}
@@ -101,7 +98,7 @@ export default function RegisterPage() {
 
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                Work Email
+                Email
               </label>
               <div className="relative">
                 <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
@@ -110,24 +107,7 @@ export default function RegisterPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="jane@company.com"
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950/80 py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 transition-all focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                Organization / Company Name
-              </label>
-              <div className="relative">
-                <Building className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-                <input
-                  type="text"
-                  required
-                  value={orgName}
-                  onChange={(e) => setOrgName(e.target.value)}
-                  placeholder="Acme Commerce Inc."
+                  placeholder="you@example.com"
                   className="w-full rounded-xl border border-slate-800 bg-slate-950/80 py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 transition-all focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 />
               </div>
@@ -160,7 +140,7 @@ export default function RegisterPage() {
                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
               ) : (
                 <>
-                  <span>Create Workspace</span>
+                  <span>Create Account</span>
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}

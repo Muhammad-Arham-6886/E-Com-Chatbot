@@ -16,12 +16,6 @@ from app.models.crawling import CrawlJob, CrawlPage, KnowledgeDocument
 from app.models.chunk import DocumentChunk, VectorType
 from app.models.chat import ChatSession, ChatMessage
 from app.models.integration import CommerceIntegration
-from app.models.subscription import (
-    SubscriptionTierEnum,
-    SubscriptionStatusEnum,
-    OrganizationSubscription,
-    OrganizationUsage,
-)
 
 __all__ = [
     "Base",
@@ -48,8 +42,4 @@ __all__ = [
     "ChatSession",
     "ChatMessage",
     "CommerceIntegration",
-    "SubscriptionTierEnum",
-    "SubscriptionStatusEnum",
-    "OrganizationSubscription",
-    "OrganizationUsage",
 ]

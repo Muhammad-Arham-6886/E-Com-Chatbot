@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends, status
+from pydantic import BaseModel
+from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
@@ -52,6 +54,29 @@ async def login(
 async def get_current_user_profile(
     current_user: User = Depends(get_current_user),
 ):
+    return current_user
+
+
+class UpdateProfileRequest(BaseModel):
+    full_name: Optional[str] = None
+
+
+@router.put(
+    "/me",
+    response_model=UserResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Update profile of the currently logged-in user",
+)
+async def update_current_user_profile(
+    data: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if data.full_name is not None:
+        current_user.full_name = data.full_name.strip()
+    db.add(current_user)
+    await db.commit()
+    await db.refresh(current_user)
     return current_user
 
 

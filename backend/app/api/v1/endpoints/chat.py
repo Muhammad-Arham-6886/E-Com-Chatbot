@@ -174,32 +174,6 @@ async def send_chat_message(
             created_at=bot_msg.created_at,
         )
 
-    # Check Monthly AI Chat Message Quota
-    from app.services.quota_service import QuotaService
-    can_chat = await QuotaService.check_monthly_chat_quota(db, website.organization_id)
-    if not can_chat:
-        quota_msg = "This website has temporarily reached its monthly customer message quota. Please contact support or check back soon."
-        bot_msg = ChatMessage(
-            session_id=session.id,
-            sender="SYSTEM",
-            content=quota_msg,
-            token_count=len(quota_msg.split()),
-        )
-        db.add(bot_msg)
-        await db.commit()
-        await db.refresh(bot_msg)
-        return ChatMessageResponse(
-            id=bot_msg.id,
-            session_id=session.id,
-            sender=bot_msg.sender,
-            content=bot_msg.content,
-            sources=[],
-            suggested_actions=[],
-            tool_call=None,
-            token_count=bot_msg.token_count,
-            created_at=bot_msg.created_at,
-        )
-
     rag_engine = RAGEngine(db)
     rag_resp = await rag_engine.process_query(
         user_message=redacted_content,
@@ -209,9 +183,6 @@ async def send_chat_message(
 
     if rag_resp.tool_call and rag_resp.tool_call.tool.value == "escalate_to_human":
         session.status = "WAITING_HUMAN"
-
-    # Track usage & tokens consumed
-    await QuotaService.increment_chat_usage(db, website.organization_id, tokens=rag_resp.token_count)
 
     # Sanitize Output
     safe_output_content = SecurityGuardrailsEngine.sanitize_output(rag_resp.content)

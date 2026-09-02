@@ -11,15 +11,10 @@ import {
   MessageSquare,
   BookOpen,
   BarChart3,
-  Users,
   Plug,
   Settings,
-  ChevronDown,
   LogOut,
-  Plus,
   Shield,
-  Building,
-  CreditCard,
 } from "lucide-react";
 
 export default function DashboardLayout({
@@ -27,10 +22,9 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, organizations, currentOrg, setCurrentOrg, logout, isLoading } = useAuth();
+  const { user, logout, isLoading } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
-  const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
   if (isLoading) {
@@ -52,11 +46,9 @@ export default function DashboardLayout({
     { label: "Knowledge Base", href: "/dashboard/knowledge", icon: BookOpen },
     { label: "AI Test Console", href: "/dashboard/chat", icon: MessageSquare },
     { label: "Conversations", href: "/dashboard/conversations", icon: MessageSquare },
-    { label: "Plans & Billing", href: "/dashboard/billing", icon: CreditCard },
     { label: "Security & Audit", href: "/dashboard/security", icon: Shield },
     { label: "Integrations", href: "/dashboard/integrations", icon: Plug },
-    { label: "Team & Access", href: "/dashboard/team", icon: Users },
-    { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3, badge: "Phase 13" },
+    { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
     { label: "Settings", href: "/dashboard/settings", icon: Settings },
   ];
 
@@ -72,55 +64,9 @@ export default function DashboardLayout({
           <div>
             <span className="font-bold text-sm tracking-tight text-white">AI Assistant</span>
             <span className="block text-[10px] uppercase tracking-wider font-semibold text-indigo-400">
-              SaaS Engine
+              E-Commerce Bot
             </span>
           </div>
-        </div>
-
-        {/* Organization Switcher */}
-        <div className="relative p-3">
-          <button
-            onClick={() => setOrgDropdownOpen(!orgDropdownOpen)}
-            className="flex w-full items-center justify-between rounded-xl border border-slate-800 bg-slate-950/60 p-2.5 text-left text-xs font-medium transition hover:border-slate-700 focus:outline-none"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400 font-bold border border-indigo-500/20">
-                {currentOrg?.name.substring(0, 1).toUpperCase() || "O"}
-              </div>
-              <div className="truncate">
-                <p className="truncate font-semibold text-white">{currentOrg?.name || "No Org Selected"}</p>
-                <p className="text-[10px] text-slate-400 font-mono">Role: {currentOrg?.role || "OWNER"}</p>
-              </div>
-            </div>
-            <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
-          </button>
-
-          {orgDropdownOpen && (
-            <div className="absolute left-3 right-3 top-16 z-50 rounded-xl border border-slate-800 bg-slate-900 p-1.5 shadow-2xl backdrop-blur-xl">
-              <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                Organizations ({organizations.length})
-              </div>
-              {organizations.map((org) => (
-                <button
-                  key={org.id}
-                  onClick={() => {
-                    setCurrentOrg(org);
-                    setOrgDropdownOpen(false);
-                  }}
-                  className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-xs transition ${
-                    currentOrg?.id === org.id
-                      ? "bg-indigo-600/20 text-indigo-300 font-semibold"
-                      : "text-slate-300 hover:bg-slate-800"
-                  }`}
-                >
-                  <span className="truncate">{org.name}</span>
-                  <span className="text-[10px] rounded bg-slate-800 px-1.5 py-0.5 text-slate-400 font-mono">
-                    {org.role}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Navigation Menu */}
@@ -142,7 +88,6 @@ export default function DashboardLayout({
                   <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-400 group-hover:text-slate-200"}`} />
                   <span>{item.label}</span>
                 </div>
-
               </Link>
             );
           })}
@@ -179,13 +124,11 @@ export default function DashboardLayout({
             <h2 className="text-sm font-semibold text-white">
               {navItems.find((i) => i.href === pathname)?.label || "Dashboard"}
             </h2>
-            <span className="text-slate-600">/</span>
-            <span className="text-xs text-slate-400 font-mono">{currentOrg?.slug || "workspace"}</span>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold text-emerald-400">
               <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-              Tenant Isolated
+              Active
             </div>
           </div>
         </header>

@@ -12,7 +12,6 @@ from app.api.v1.endpoints import (
     integrations,
     whatsapp,
     plugin,
-    billing,
     security,
     analytics,
 )
@@ -30,6 +29,5 @@ api_router.include_router(conversations.router)
 api_router.include_router(integrations.router)
 api_router.include_router(whatsapp.router)
 api_router.include_router(plugin.router)
-api_router.include_router(billing.router)
 api_router.include_router(security.router)
 api_router.include_router(analytics.router)

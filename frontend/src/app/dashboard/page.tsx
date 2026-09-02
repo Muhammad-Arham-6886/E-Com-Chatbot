@@ -7,9 +7,7 @@ import { apiRequest } from "@/lib/api-client";
 import {
   Globe,
   MessageSquare,
-  Users,
   ShieldCheck,
-  ArrowUpRight,
   Plus,
   Sparkles,
   Layers,
@@ -18,17 +16,12 @@ import {
 export default function DashboardOverviewPage() {
   const { currentOrg, user } = useAuth();
   const [websiteCount, setWebsiteCount] = useState<number>(0);
-  const [memberCount, setMemberCount] = useState<number>(1);
 
   useEffect(() => {
     if (currentOrg) {
       apiRequest(`/websites?org_id=${currentOrg.id}`)
         .then((res) => setWebsiteCount(res.length))
         .catch(() => setWebsiteCount(0));
-
-      apiRequest(`/organizations/${currentOrg.id}/members`)
-        .then((res) => setMemberCount(res.length))
-        .catch(() => setMemberCount(1));
     }
   }, [currentOrg]);
 
@@ -51,18 +44,9 @@ export default function DashboardOverviewPage() {
       iconColor: "text-indigo-400",
     },
     {
-      title: "Team Members",
-      value: `${memberCount}`,
-      sub: "Manage roles & permissions",
-      icon: Users,
-      color: "from-emerald-500/20 to-teal-500/20",
-      iconColor: "text-emerald-400",
-      href: "/dashboard/team",
-    },
-    {
-      title: "Tenant Isolation",
-      value: "Enforced",
-      sub: "Server-side RBAC active",
+      title: "Security",
+      value: "Active",
+      sub: "Guardrails enabled",
       icon: ShieldCheck,
       color: "from-amber-500/20 to-orange-500/20",
       iconColor: "text-amber-400",
@@ -83,7 +67,7 @@ export default function DashboardOverviewPage() {
               Welcome back, {user?.full_name || user?.email}
             </h1>
             <p className="mt-1 text-sm text-slate-400 max-w-2xl">
-              Workspace: <span className="font-semibold text-slate-200">{currentOrg?.name}</span> ({currentOrg?.slug}) • Role: <span className="font-mono text-xs text-indigo-400 font-semibold">{currentOrg?.role}</span>
+              Manage your websites and AI chatbot from one place.
             </p>
           </div>
 
@@ -98,7 +82,7 @@ export default function DashboardOverviewPage() {
       </div>
 
       {/* Metric Cards Grid */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {stats.map((stat) => {
           const Icon = stat.icon;
           const card = (
@@ -124,7 +108,7 @@ export default function DashboardOverviewPage() {
         })}
       </div>
 
-      {/* Phase Roadmap Card */}
+      {/* System Status Card */}
       <div className="rounded-2xl border border-slate-800/80 bg-slate-900/50 p-6 backdrop-blur-sm">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -138,15 +122,6 @@ export default function DashboardOverviewPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-4">
-            <div className="flex items-center justify-between text-xs font-bold text-emerald-400 mb-1">
-              <span>AUTH & MULTI-TENANCY</span>
-              <span>Active</span>
-            </div>
-            <p className="text-sm font-semibold text-white">User & Organization Management</p>
-            <p className="text-xs text-slate-400 mt-1">JWT auth, RBAC, team invitations, workspace isolation.</p>
-          </div>
-
           <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-4">
             <div className="flex items-center justify-between text-xs font-bold text-emerald-400 mb-1">
               <span>CRAWLER & KNOWLEDGE BASE</span>
@@ -163,6 +138,15 @@ export default function DashboardOverviewPage() {
             </div>
             <p className="text-sm font-semibold text-white">Chat Widget & AI Engine</p>
             <p className="text-xs text-slate-400 mt-1">Embeddable widget, Ollama RAG, live chat, WhatsApp handoff.</p>
+          </div>
+
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-4">
+            <div className="flex items-center justify-between text-xs font-bold text-emerald-400 mb-1">
+              <span>SECURITY</span>
+              <span>Active</span>
+            </div>
+            <p className="text-sm font-semibold text-white">Guardrails & Audit</p>
+            <p className="text-xs text-slate-400 mt-1">Prompt injection detection, output sanitization, audit logging.</p>
           </div>
         </div>
       </div>

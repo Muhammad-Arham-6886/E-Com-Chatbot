@@ -45,7 +45,7 @@ export default function LoginPage() {
             <Bot className="h-7 w-7 text-white" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-white">AI Commerce Assistant</h1>
-          <p className="mt-1 text-sm text-slate-400">Sign in to your multi-tenant workspace</p>
+          <p className="mt-1 text-sm text-slate-400">Sign in to your dashboard</p>
         </div>
 
         {/* Card */}
@@ -111,7 +111,7 @@ export default function LoginPage() {
           <div className="mt-6 border-t border-slate-800/80 pt-6 text-center text-xs text-slate-400">
             Don&apos;t have an account?{" "}
             <Link href="/register" className="font-semibold text-indigo-400 hover:text-indigo-300">
-              Create an organization
+              Create an account
             </Link>
           </div>
         </div>

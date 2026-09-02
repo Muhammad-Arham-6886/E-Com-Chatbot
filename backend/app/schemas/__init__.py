@@ -71,13 +71,6 @@ from app.schemas.whatsapp import (
     WhatsAppPreviewRequest,
     WhatsAppPreviewResponse,
 )
-from app.schemas.billing import (
-    UsageMetricItem,
-    UsageBreakdownResponse,
-    SubscriptionResponse,
-    PlanTierInfo,
-    ChangeTierRequest,
-)
 from app.schemas.security import (
     AuditLogResponse,
     PaginatedAuditLogsResponse,
@@ -152,11 +145,6 @@ __all__ = [
     "WooCommerceTestResponse",
     "WhatsAppPreviewRequest",
     "WhatsAppPreviewResponse",
-    "UsageMetricItem",
-    "UsageBreakdownResponse",
-    "SubscriptionResponse",
-    "PlanTierInfo",
-    "ChangeTierRequest",
     "AuditLogResponse",
     "PaginatedAuditLogsResponse",
     "GuardrailTestRequest",
