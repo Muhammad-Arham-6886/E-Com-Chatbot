@@ -116,7 +116,7 @@ async def send_chat_message(
             resource_id=session.id,
             details={"pattern": injection_reason, "sample": data.content[:120]},
         )
-        guardrail_reply = "I cannot fulfill this request as it conflicts with safety and platform security guidelines. How may I help you with our products or store information?"
+        guardrail_reply = "I can't help with that. How can I assist you with our products or services?"
         bot_msg = ChatMessage(
             session_id=session.id,
             sender="BOT",
@@ -152,7 +152,7 @@ async def send_chat_message(
     # 5. Execute RAG Engine (if not currently taken over by a human agent)
     if session.status == "HUMAN_TAKEOVER":
         # Do not let AI auto-reply when a human agent has explicitly taken over
-        bot_reply_content = "A support agent has joined this conversation and will reply to you shortly."
+        bot_reply_content = "A support agent has joined and will reply shortly."
         bot_msg = ChatMessage(
             session_id=session.id,
             sender="SYSTEM",

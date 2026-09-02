@@ -43,6 +43,10 @@ class ToolSelectionEngine:
         "product", "products", "item", "items", "catalog", "buy", "shop",
         "price of", "how much is", "do you sell", "looking for", "recommend",
         "discount", "inventory", "stock", "shoes", "keyboard", "headphones",
+        "grenade", "smoke", "bomb", "firework", "fireworks", "cannon",
+        "paintball", "airsoft", "photography",
+        "bundle", "pack", "kit", "set",
+        "do you have", "sell", "available", "in stock",
     ]
 
     POLICY_AND_FAQ_KEYWORDS = [

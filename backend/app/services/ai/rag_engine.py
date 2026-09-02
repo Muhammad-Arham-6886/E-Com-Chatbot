@@ -65,13 +65,16 @@ class RAGEngine:
 
     def _build_grounded_system_prompt(self, website: Website, context_chunks: List[str]) -> str:
         base_instructions = (
-            f"You are the official AI Assistant for '{website.name}' ({website.domain}).\n"
-            "Your duty is to answer customer questions politely, accurately, and truthfully using ONLY the provided website context below.\n\n"
-            "STRICT RULES:\n"
-            "1. Answer ONLY based on the facts provided in the Context below.\n"
-            "2. If the context does not contain enough information to answer the question, politely say you do not have that verified information and offer to connect with human support.\n"
-            "3. Never hallucinate policies, pricing, dates, or specifications.\n"
-            "4. Keep your answer concise, polite, and helpful."
+            f"You are the AI customer support for '{website.name}' ({website.domain}).\n\n"
+            "RULES:\n"
+            "- Answer in 1-3 sentences. Be direct and specific.\n"
+            "- Use ONLY the context below. Never make up information.\n"
+            "- If the context mentions a product, include the product name and price if available.\n"
+            "- If context has a URL, include it.\n"
+            "- If you don't have the answer, say 'I don't have that info' and offer to connect with support.\n"
+            "- No greetings, no filler, no stories. Just the answer.\n"
+            "- Never say 'Based on the official website information' or similar prefixes.\n"
+            "- Never end with 'Is there anything else I can help you with?'"
         )
 
         if website.settings and website.settings.custom_instructions:
@@ -112,9 +115,9 @@ class RAGEngine:
         if tool_result.tool == ToolType.ESCALATE_HUMAN:
             if whatsapp_action:
                 actions.append(whatsapp_action)
-                reply = "I'd be happy to connect you with our human support team right away on WhatsApp. Click the button below to start chatting directly with an agent with your conversation summary pre-filled."
+                reply = "Connecting you to our support team on WhatsApp."
             else:
-                reply = "I understand you'd like to speak with a human support agent. Please leave your contact details or email support, and our team will get in touch with you shortly."
+                reply = "I'll connect you with our support team. Please leave your details and we'll get back to you."
 
             return RAGResponse(
                 content=reply,
@@ -140,11 +143,17 @@ class RAGEngine:
                 )
 
             if products:
-                prod_names = ", ".join(f"'{p.name}' (${p.price:.2f})" for p in products)
-                reply = f"Here are the top product recommendations matching your request from our catalog:\n\n"
+                reply = ""
                 for p in products:
-                    reply += f"• **{p.name}** - ${p.price:.2f} {p.currency}\n  {p.description}\n"
-                reply += "\nFeel free to click any product to view details or add it to your shopping cart!"
+                    reply += f"{p.name} - ${p.price:.2f}\n"
+                    if p.description:
+                        # Truncate description to 1-2 sentences
+                        short_desc = '. '.join(p.description.split('.')[:2]).strip()
+                        if not short_desc.endswith('.'):
+                            short_desc += '.'
+                        reply += f"{short_desc}\n"
+                    reply += f"Link: {p.product_url}\n\n"
+                reply = reply.strip()
             else:
                 reply = "I searched our product catalog but couldn't find exact matches for that item. Would you like me to connect you with a representative?"
                 if whatsapp_action:

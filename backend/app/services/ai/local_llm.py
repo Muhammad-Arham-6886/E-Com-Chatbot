@@ -33,11 +33,21 @@ class LocalLLMClient:
         """
         if context_chunks and len(context_chunks) > 0:
             primary_chunk = context_chunks[0]
-            # Formulate clean, natural grounded answer
-            first_sentence = primary_chunk.split(".")[0].strip()
-            return f"Based on the official website information: {primary_chunk}\n\nIs there anything else I can help you with regarding this?"
+            # Extract URL if present
+            import re
+            urls = re.findall(r'https?://[^\s\)]+', primary_chunk)
+            url_line = f"\nLink: {urls[0]}" if urls else ""
+            # Extract price if present
+            price_match = re.search(r'\$[\d,.]+', primary_chunk)
+            price_line = f" | Price: {price_match.group()}" if price_match else ""
+            # Clean up the chunk - remove "Based on the official website information:" prefix if present
+            clean_chunk = primary_chunk.replace("Based on the official website information:", "").strip()
+            # Truncate to key info
+            sentences = [s.strip() for s in clean_chunk.split('.') if s.strip()]
+            short_answer = '. '.join(sentences[:3]) + '.' if sentences else clean_chunk[:300]
+            return f"{short_answer}{price_line}{url_line}"
         
-        return "I apologize, but I do not have verified website information to answer that question accurately. Would you like to connect directly with our customer support team?"
+        return "I don't have that information. Would you like to connect with our support team?"
 
     async def generate_response(
         self,
