@@ -5,7 +5,7 @@ from app.models.enums import CrawlJobStatusEnum, CrawlPageStatusEnum, DocumentSt
 
 
 class CrawlJobStart(BaseModel):
-    max_pages: int = Field(default=50, ge=1, le=1000, description="Maximum number of pages to crawl")
+    max_pages: int = Field(default=50, ge=1, le=5000, description="Maximum number of pages to crawl")
 
 
 class CrawlJobResponse(BaseModel):
