@@ -74,7 +74,9 @@ class RAGEngine:
             "- If you don't have the answer, say 'I don't have that info' and offer to connect with support.\n"
             "- No greetings, no filler, no stories. Just the answer.\n"
             "- Never say 'Based on the official website information' or similar prefixes.\n"
-            "- Never end with 'Is there anything else I can help you with?'"
+            "- Never end with 'Is there anything else I can help you with?'\n"
+            "- IGNORE navigation menus, category lists, and page layouts.\n"
+            "- Focus on product descriptions, specifications, and factual content only."
         )
 
         if website.settings and website.settings.custom_instructions:
@@ -172,14 +174,25 @@ class RAGEngine:
             query=user_message,
             org_id=website.organization_id,
             website_id=website.id,
-            top_k=6,
+            top_k=8,
             min_similarity=0.15,
         )
 
+        # Filter out low-quality context chunks
         context_chunks: List[str] = []
         seen_urls = set()
         for hit in search_hits:
-            context_chunks.append(hit.content)
+            content = hit.content.strip()
+            # Skip very short or navigation-like chunks
+            if len(content) < 40:
+                continue
+            # Skip chunks that are mostly lists of short items (category lists)
+            lines = [l.strip() for l in content.split('\n') if l.strip()]
+            short_lines = sum(1 for l in lines if len(l.split()) <= 2)
+            if lines and short_lines > len(lines) * 0.5:
+                continue
+
+            context_chunks.append(content)
             if hit.url not in seen_urls:
                 seen_urls.add(hit.url)
                 sources.append(SourceCitation(title=hit.title, url=hit.url))

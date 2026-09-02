@@ -111,15 +111,21 @@ class LocalLLMClient:
         # Get query keywords
         keywords = [w.lower() for w in query.split() if len(w) > 2 and w not in LocalLLMClient.STOP_WORDS]
 
-        # Find sentences that contain query keywords
-        relevant = []
+        # Score each sentence by keyword match count
+        scored_sentences = []
         for s in sentences:
             s_lower = s.lower()
-            if any(w in s_lower for w in keywords):
-                relevant.append(s)
+            match_count = sum(1 for w in keywords if w in s_lower)
+            scored_sentences.append((match_count, s))
 
-        # Use relevant sentences if found, otherwise use first 2 sentences
-        use_sentences = relevant[:3] if relevant else sentences[:2]
+        # Sort by match count descending
+        scored_sentences.sort(key=lambda x: x[0], reverse=True)
+
+        # Take top sentences that have at least 1 keyword match
+        relevant = [s for count, s in scored_sentences if count > 0][:3]
+
+        # If no sentence matches any keyword, take first 2 sentences as fallback
+        use_sentences = relevant if relevant else sentences[:2]
 
         if not use_sentences:
             return "I don't have that information."

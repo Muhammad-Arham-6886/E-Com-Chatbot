@@ -1,5 +1,6 @@
 import json
 import math
+import re
 from typing import List, Optional
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -62,6 +63,46 @@ class VectorSearchService:
             return 0.0
         return dot / (norm_a * norm_b)
 
+    @staticmethod
+    def _is_boilerplate(content: str) -> bool:
+        """Check if a chunk is navigation/boilerplate content."""
+        content = content.strip()
+        # Very short chunks are likely labels
+        if len(content) < 30:
+            return True
+        # Single words or short phrases
+        words = content.split()
+        if len(words) < 5:
+            return True
+        # Looks like a list of category names (no sentences, just words separated by newlines)
+        lines = [l.strip() for l in content.split('\n') if l.strip()]
+        if lines:
+            # Count lines that are just single words (categories)
+            short_lines = sum(1 for l in lines if len(l.split()) <= 2)
+            if short_lines > len(lines) * 0.5:
+                return True
+        return False
+
+    @staticmethod
+    def _keyword_overlap_score(chunk: str, query: str) -> float:
+        """Boost score based on keyword overlap between chunk and query."""
+        stop_words = {
+            "i", "me", "my", "we", "our", "you", "your", "it", "its",
+            "the", "a", "an", "is", "are", "was", "were", "be", "been",
+            "do", "does", "did", "have", "has", "had", "can", "could",
+            "will", "would", "should", "may", "might", "shall",
+            "what", "which", "who", "how", "when", "where", "why",
+            "in", "on", "at", "to", "for", "of", "with", "by", "from",
+        }
+        query_words = {w.lower() for w in query.split() if len(w) > 2 and w.lower() not in stop_words}
+        chunk_lower = chunk.lower()
+
+        if not query_words:
+            return 0.0
+
+        matched = sum(1 for w in query_words if w in chunk_lower)
+        return matched / len(query_words) if query_words else 0.0
+
     async def search(
         self,
         query: str,
@@ -75,20 +116,19 @@ class VectorSearchService:
 
         query_vector = await self.embedding_service.get_embedding(query)
 
-        # Check DB dialect
         try:
             bind = self.db.get_bind()
             dialect_name = bind.dialect.name if bind else "postgresql"
         except Exception:
             dialect_name = "postgresql" if not getattr(self.db, "_is_async", False) else "sqlite"
 
-        # Build base filter strictly isolated by organization_id
         filters = [DocumentChunk.organization_id == org_id]
         if website_id:
             filters.append(DocumentChunk.website_id == website_id)
 
         if dialect_name == "postgresql":
-            # Native PostgreSQL pgvector cosine similarity search
+            # Fetch more candidates for re-ranking
+            fetch_k = top_k * 3
             stmt = (
                 select(
                     DocumentChunk,
@@ -99,31 +139,41 @@ class VectorSearchService:
                 .join(KnowledgeDocument, DocumentChunk.document_id == KnowledgeDocument.id)
                 .where(and_(*filters))
                 .order_by(DocumentChunk.embedding.cosine_distance(query_vector))
-                .limit(top_k)
+                .limit(fetch_k)
             )
             result = await self.db.execute(stmt)
             rows = result.all()
 
-            results: List[SearchResultItem] = []
+            # Re-rank: combine vector similarity with keyword overlap
+            re_ranked = []
             for chunk, url, title, similarity in rows:
-                score = float(similarity) if similarity is not None else 0.0
-                if score >= min_similarity:
-                    results.append(
-                        SearchResultItem(
-                            chunk_id=chunk.id,
-                            document_id=chunk.document_id,
-                            website_id=chunk.website_id,
-                            url=url,
-                            title=title,
-                            content=chunk.content,
-                            similarity_score=score,
-                            chunk_index=chunk.chunk_index,
-                            token_count=chunk.token_count,
-                        )
-                    )
-            return results
+                vec_score = float(similarity) if similarity is not None else 0.0
+                if vec_score < min_similarity:
+                    continue
+                if self._is_boilerplate(chunk.content):
+                    continue
+
+                kw_score = self._keyword_overlap_score(chunk.content, query)
+                # Combined score: 60% vector similarity + 40% keyword match
+                combined = (vec_score * 0.6) + (kw_score * 0.4)
+
+                re_ranked.append((combined, SearchResultItem(
+                    chunk_id=chunk.id,
+                    document_id=chunk.document_id,
+                    website_id=chunk.website_id,
+                    url=url,
+                    title=title,
+                    content=chunk.content,
+                    similarity_score=vec_score,
+                    chunk_index=chunk.chunk_index,
+                    token_count=chunk.token_count,
+                )))
+
+            re_ranked.sort(key=lambda x: x[0], reverse=True)
+            return [item for _, item in re_ranked[:top_k]]
+
         else:
-            # SQLite / Test mode in-memory cosine search
+            # SQLite / Test mode
             stmt = (
                 select(
                     DocumentChunk,
@@ -144,26 +194,27 @@ class VectorSearchService:
                         chunk_emb = json.loads(chunk_emb)
                     except Exception:
                         chunk_emb = []
-                
-                score = self._cosine_similarity(query_vector, chunk_emb) if chunk_emb else 0.0
-                if score >= min_similarity:
-                    scored_items.append(
-                        (
-                            score,
-                            SearchResultItem(
-                                chunk_id=chunk.id,
-                                document_id=chunk.document_id,
-                                website_id=chunk.website_id,
-                                url=url,
-                                title=title,
-                                content=chunk.content,
-                                similarity_score=score,
-                                chunk_index=chunk.chunk_index,
-                                token_count=chunk.token_count,
-                            ),
-                        )
-                    )
 
-            # Sort descending by score
+                vec_score = self._cosine_similarity(query_vector, chunk_emb) if chunk_emb else 0.0
+                if vec_score < min_similarity:
+                    continue
+                if self._is_boilerplate(chunk.content):
+                    continue
+
+                kw_score = self._keyword_overlap_score(chunk.content, query)
+                combined = (vec_score * 0.6) + (kw_score * 0.4)
+
+                scored_items.append((combined, SearchResultItem(
+                    chunk_id=chunk.id,
+                    document_id=chunk.document_id,
+                    website_id=chunk.website_id,
+                    url=url,
+                    title=title,
+                    content=chunk.content,
+                    similarity_score=vec_score,
+                    chunk_index=chunk.chunk_index,
+                    token_count=chunk.token_count,
+                )))
+
             scored_items.sort(key=lambda x: x[0], reverse=True)
             return [item for _, item in scored_items[:top_k]]
