@@ -96,6 +96,28 @@ class VectorSearchService:
         matched = sum(1 for w in query_words if w in chunk_lower)
         return matched / len(query_words) if query_words else 0.0
 
+    @staticmethod
+    def _phrase_overlap_score(chunk: str, query: str) -> float:
+        """Check if meaningful multi-word phrases from the query appear verbatim in the chunk."""
+        stop_words = {
+            "the", "a", "an", "of", "to", "for", "in", "on", "at",
+            "is", "are", "was", "were", "do", "does", "did", "have",
+            "has", "had", "can", "could", "would", "will", "should",
+            "and", "or", "but", "me", "you", "your", "my", "our",
+        }
+        words = query.lower().split()
+        chunk_lower = chunk.lower()
+        phrase_score = 0.0
+
+        for i in range(len(words) - 1):
+            w1, w2 = words[i], words[i + 1]
+            if len(w1) > 2 and len(w2) > 2 and w1 not in stop_words and w2 not in stop_words:
+                phrase = f"{w1} {w2}"
+                if phrase in chunk_lower:
+                    phrase_score += 1.0
+
+        return min(1.0, phrase_score)
+
     async def search(
         self,
         query: str,
@@ -137,7 +159,7 @@ class VectorSearchService:
             result = await self.db.execute(stmt)
             rows = result.all()
 
-            # Re-rank: combine vector similarity with keyword overlap
+            # Re-rank: combine vector similarity with keyword overlaps
             re_ranked = []
             for chunk, url, title, similarity in rows:
                 vec_score = float(similarity) if similarity is not None else 0.0
@@ -146,10 +168,11 @@ class VectorSearchService:
                 if self._is_boilerplate(chunk.content):
                     continue
 
-                kw_score = self._keyword_overlap_score(chunk.content, query)
-                # Combined score: 30% vector similarity + 70% keyword match
-                # (Keywords are more reliable than random deterministic embeddings)
-                combined = (vec_score * 0.3) + (kw_score * 0.7)
+                content_kw = self._keyword_overlap_score(chunk.content, query)
+                title_kw = self._keyword_overlap_score(title or "", query)
+                phrase_kw = self._phrase_overlap_score(chunk.content, query)
+                # Combined: 25% vector + 30% content keywords + 25% title + 20% phrase
+                combined = (vec_score * 0.25) + (content_kw * 0.30) + (title_kw * 0.25) + (phrase_kw * 0.20)
 
                 re_ranked.append((combined, SearchResultItem(
                     chunk_id=chunk.id,
@@ -195,8 +218,10 @@ class VectorSearchService:
                 if self._is_boilerplate(chunk.content):
                     continue
 
-                kw_score = self._keyword_overlap_score(chunk.content, query)
-                combined = (vec_score * 0.3) + (kw_score * 0.7)
+                content_kw = self._keyword_overlap_score(chunk.content, query)
+                title_kw = self._keyword_overlap_score(title or "", query)
+                phrase_kw = self._phrase_overlap_score(chunk.content, query)
+                combined = (vec_score * 0.25) + (content_kw * 0.30) + (title_kw * 0.25) + (phrase_kw * 0.20)
 
                 scored_items.append((combined, SearchResultItem(
                     chunk_id=chunk.id,

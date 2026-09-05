@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import Any, Dict, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,6 +9,13 @@ from app.services.ai.commerce_provider import CommerceProvider, MockCommerceProv
 from app.services.ai.local_llm import LocalLLMClient
 from app.services.ai.tool_selector import ToolSelectionEngine, ToolType, ToolCallResult
 from app.services.rag.vector_search import VectorSearchService
+
+logger = logging.getLogger("ai_commerce_saas.rag")
+
+CURRENCY_SYMBOLS = {
+    "USD": "$", "GBP": "£", "EUR": "€", "AUD": "A$", "CAD": "C$",
+    "INR": "₹", "PKR": "₨", "JPY": "¥", "CNY": "¥", "AED": "د.إ",
+}
 
 
 class SourceCitation:
@@ -129,6 +137,21 @@ class RAGEngine:
                 token_count=len(reply.split()),
             )
 
+        # 2.5 Handle Greeting
+        if tool_result.tool == ToolType.GREETING:
+            reply = (
+                f"Hello! Welcome to {website.name}. "
+                "How can I help you today? You can ask about our products, "
+                "prices, delivery times, or anything else."
+            )
+            return RAGResponse(
+                content=reply,
+                sources=[],
+                suggested_actions=[],
+                tool_call=tool_result,
+                token_count=len(reply.split()),
+            )
+
         # 3. Handle Product Search or Add to Cart via Commerce Provider
         if tool_result.tool in (ToolType.SEARCH_PRODUCT, ToolType.ADD_TO_CART, ToolType.GET_PRODUCT):
             from app.services.ai.commerce_provider import get_commerce_provider_for_website
@@ -138,7 +161,7 @@ class RAGEngine:
             # If no products found (no store connected or no match), fall through to RAG
             if not products:
                 # Continue to knowledge inquiry below
-                pass
+                logger.info("Commerce search returned no products; falling back to RAG.")
             else:
                 for prod in products:
                     actions.append(
@@ -150,16 +173,16 @@ class RAGEngine:
                         )
                     )
 
-                reply = ""
+                # Concise reply: just the product name + price + brand/card handles the rest
+                reply_lines = ["Here's what I found:"]
                 for p in products:
-                    reply += f"{p.name} - ${p.price:.2f}\n"
-                    if p.description:
-                        short_desc = '. '.join(p.description.split('.')[:2]).strip()
-                        if not short_desc.endswith('.'):
-                            short_desc += '.'
-                        reply += f"{short_desc}\n"
-                    reply += f"Link: {p.product_url}\n\n"
-                reply = reply.strip()
+                    symbol = CURRENCY_SYMBOLS.get(p.currency, f"{p.currency} ")
+                    price_str = f"{symbol}{p.price:,.2f}" if p.price else "Price on request"
+                    line = f"• {p.name} — {price_str}"
+                    if p.in_stock is False:
+                        line += " (out of stock)"
+                    reply_lines.append(line)
+                reply = "\n".join(reply_lines)
 
                 return RAGResponse(
                     content=reply,
@@ -214,9 +237,24 @@ class RAGEngine:
         )
 
         # If LLM indicates lack of knowledge and WhatsApp is enabled, suggest WhatsApp
-        if "don't have" in llm_resp.content.lower() or "do not have" in llm_resp.content.lower():
+        denial_phrases = [
+            "don't have that information", "do not have that information",
+            "don't have that info", "do not have that info",
+            "don't currently carry", "do not currently carry",
+            "we don't carry", "we do not carry",
+            "i couldn't find", "could not find that",
+        ]
+        content_lower = llm_resp.content.lower()
+        is_denial = any(p in content_lower for p in denial_phrases)
+
+        if is_denial:
+            # Don't attach irrelevant sources to a "no info" answer
+            sources = []
             if whatsapp_action:
                 actions.append(whatsapp_action)
+        else:
+            # Keep at most 3 relevant sources
+            sources = sources[:3]
 
         return RAGResponse(
             content=llm_resp.content,

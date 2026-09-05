@@ -385,6 +385,17 @@
   var sendBtn = shadow.getElementById("sendBtn");
   var botNameEl = shadow.getElementById("botName");
 
+  var CURRENCY_SYMBOLS = {
+    USD: "$", GBP: "£", EUR: "€", AUD: "A$", CAD: "C$",
+    INR: "₹", PKR: "₨", JPY: "¥", CNY: "¥", AED: "د.إ"
+  };
+  function fmtPrice(p) {
+    var num = Number(p.price);
+    if (isNaN(num)) num = 0;
+    var sym = CURRENCY_SYMBOLS[p.currency] || (p.currency ? p.currency + " " : "£");
+    return sym + num.toFixed(2);
+  }
+
   function formatMarkdown(text) {
     if (!text) return "";
     var escaped = text
@@ -420,7 +431,7 @@
             ${p.image_url ? '<img src="' + p.image_url + '" class="product-img" alt="' + p.name + '" />' : ''}
             <div class="product-info">
               <div class="product-title">${p.name}</div>
-              <div class="product-price">$${p.price.toFixed(2)} ${p.currency}</div>
+              <div class="product-price">${fmtPrice(p)}</div>
             </div>
             <a href="${act.value}" target="_blank" rel="noreferrer" class="product-btn">View</a>
           `;

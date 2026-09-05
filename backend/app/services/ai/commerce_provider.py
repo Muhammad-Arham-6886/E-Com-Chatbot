@@ -182,17 +182,21 @@ class WooCommerceProvider(CommerceProvider):
                 for item in items:
                     images = item.get("images", [])
                     img_url = images[0].get("src") if images else None
-                    price_val = float(item.get("price") or item.get("regular_price") or 0.0)
+                    raw_price = item.get("price") or item.get("regular_price") or item.get("sale_price") or "0"
+                    try:
+                        price_val = float(raw_price)
+                    except (ValueError, TypeError):
+                        price_val = 0.0
                     products.append(
                         ProductCard(
                             id=str(item.get("id")),
                             name=item.get("name", "Product"),
                             price=price_val,
-                            currency="USD",
+                            currency=item.get("currency", "USD"),
                             description=self._strip_html(item.get("short_description") or item.get("description") or ""),
                             image_url=img_url,
                             product_url=item.get("permalink", f"{self.api_url}/product/{item.get('slug')}"),
-                            in_stock=item.get("in_stock", True),
+                            in_stock=(item.get("stock_status") != "outofstock"),
                         )
                     )
                 return products
@@ -217,16 +221,20 @@ class WooCommerceProvider(CommerceProvider):
                 item = resp.json()
                 images = item.get("images", [])
                 img_url = images[0].get("src") if images else None
-                price_val = float(item.get("price") or item.get("regular_price") or 0.0)
+                raw_price = item.get("price") or item.get("regular_price") or item.get("sale_price") or "0"
+                try:
+                    price_val = float(raw_price)
+                except (ValueError, TypeError):
+                    price_val = 0.0
                 return ProductCard(
                     id=str(item.get("id")),
                     name=item.get("name", "Product"),
                     price=price_val,
-                    currency="USD",
+                    currency=item.get("currency", "USD"),
                     description=self._strip_html(item.get("short_description") or item.get("description") or ""),
                     image_url=img_url,
                     product_url=item.get("permalink", f"{self.api_url}/product/{item.get('slug')}"),
-                    in_stock=item.get("in_stock", True),
+                    in_stock=(item.get("stock_status") != "outofstock"),
                 )
         except Exception:
             pass

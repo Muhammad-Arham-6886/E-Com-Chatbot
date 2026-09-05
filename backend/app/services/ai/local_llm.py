@@ -36,6 +36,7 @@ class LocalLLMClient:
         "not", "no", "so", "very", "too", "also", "just",
         "in", "on", "at", "to", "for", "of", "with", "by", "from",
         "about", "like", "as", "than", "then", "now", "here", "there",
+        "tell", "want", "need", "get", "know", "please",
     }
 
     @classmethod
@@ -60,21 +61,38 @@ class LocalLLMClient:
             return 0.0
 
         matched = 0
+        total_occurrences = 0
         for word in keywords:
-            # Simple substring match (handles plural/singular, conjugations)
-            if word in chunk_lower:
+            count = chunk_lower.count(word)
+            if count > 0:
                 matched += 1
+                total_occurrences += count
 
         if matched == 0:
             return 0.0
 
-        # Score = percentage of query keywords found in chunk
-        # Bonus if ALL keywords match
+        # Base score = percentage of query keywords found in chunk
         base_score = matched / len(keywords)
-        if matched == len(keywords):
-            base_score = 1.0  # Perfect match
 
-        return base_score
+        # Keyword density bonus: chunks mentioning keywords multiple times are more relevant
+        density_boost = min(0.2, total_occurrences * 0.05)
+
+        # Phrase bonus: adjacent meaningful words from the query appearing in order
+        phrase_boost = 0.0
+        words = query.lower().split()
+        for i in range(len(words) - 1):
+            w1, w2 = words[i], words[i + 1]
+            if len(w1) > 2 and len(w2) > 2 and w1 not in cls.STOP_WORDS and w2 not in cls.STOP_WORDS:
+                if f"{w1} {w2}" in chunk_lower:
+                    phrase_boost += 0.15
+        phrase_boost = min(0.15, phrase_boost)
+
+        # Complete keyword match ALWAYS beats partial matches
+        if matched == len(keywords):
+            return min(2.0, 1.0 + 0.4 + density_boost + phrase_boost)
+
+        # Partial matches stay below 1.0
+        return min(0.99, base_score + min(0.3, density_boost + phrase_boost))
 
     @staticmethod
     def _is_do_you_have_query(query: str) -> bool:
